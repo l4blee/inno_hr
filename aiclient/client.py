@@ -16,7 +16,7 @@ class OpenAIClient:
         logger.info('Initialized OpenAI client...')
 
     async def get_response(self, prompt: str, user: Users) -> GPTResponse:
-        context = json.loads(user.context)
+        context = json.loads(user.context) if user.use_context else []
 
         context.append({'role': 'user', 'content': prompt})
 
@@ -29,10 +29,16 @@ class OpenAIClient:
             temperature=0.6
         )
 
-        user.context = json.dumps(context)
-
-        return GPTResponse(
+        gpt_response = GPTResponse(
             content=res.choices[0].message.content,
             tokens_total=res.usage.total_tokens,
             tokens_completion=res.usage.completion_tokens
         )
+        
+        if user.use_context:
+            user.context = json.dumps(context)
+            user.context_used += gpt_response.tokens_total 
+
+        user.tokens_left -= gpt_response.tokens_completion
+
+        return gpt_response
